@@ -60,18 +60,57 @@ def is_safe_path(path, cwd):
         if real_path == system_root or real_path == system_root.rstrip(os.sep):
             return False
 
-        # Prevent operations on critical system directories
+        # Prevent operations on critical system directories (Ubuntu/Linux specific)
         critical_dirs = [
+            # Core system directories
+            os.path.join(system_root, 'boot'),
+            os.path.join(system_root, 'etc'),
+            os.path.join(system_root, 'bin'),
+            os.path.join(system_root, 'sbin'),
+            os.path.join(system_root, 'usr', 'bin'),
+            os.path.join(system_root, 'usr', 'sbin'),
+            os.path.join(system_root, 'usr', 'lib'),
+            os.path.join(system_root, 'usr', 'lib64'),
+            os.path.join(system_root, 'usr', 'lib32'),
+            os.path.join(system_root, 'lib'),
+            os.path.join(system_root, 'lib64'),
+            os.path.join(system_root, 'lib32'),
+            
+            # System configuration
+            os.path.join(system_root, 'var', 'log'),
+            os.path.join(system_root, 'var', 'lib'),
+            os.path.join(system_root, 'var', 'cache'),
+            os.path.join(system_root, 'var', 'spool'),
+            os.path.join(system_root, 'var', 'run'),
+            
+            # Kernel and drivers
+            os.path.join(system_root, 'lib', 'modules'),
+            os.path.join(system_root, 'lib', 'firmware'),
+            
+            # System services
+            os.path.join(system_root, 'etc', 'systemd'),
+            os.path.join(system_root, 'etc', 'init.d'),
+            os.path.join(system_root, 'etc', 'rc.d'),
+            
+            # Package management
+            os.path.join(system_root, 'var', 'lib', 'dpkg'),
+            os.path.join(system_root, 'var', 'lib', 'apt'),
+            os.path.join(system_root, 'etc', 'apt'),
+            
+            # Network configuration
+            os.path.join(system_root, 'etc', 'network'),
+            os.path.join(system_root, 'etc', 'netplan'),
+            
+            # Security
+            os.path.join(system_root, 'etc', 'ssh'),
+            os.path.join(system_root, 'etc', 'ssl'),
+            os.path.join(system_root, 'etc', 'pam.d'),
+            
+            # Windows compatibility (if WSL)
             os.path.join(system_root, 'Windows', 'System32'),
             os.path.join(system_root, 'Windows', 'SysWOW64'),
             os.path.join(system_root, 'Program Files'),
             os.path.join(system_root, 'Program Files (x86)'),
-            os.path.join(system_root, 'boot'),
-            os.path.join(system_root, 'etc'),
-            os.path.join(system_root, 'usr', 'bin'),
-            os.path.join(system_root, 'usr', 'sbin'),
-            os.path.join(system_root, 'bin'),
-            os.path.join(system_root, 'sbin'),
         ]
 
         for critical_dir in critical_dirs:
@@ -173,6 +212,129 @@ def format_timestamp(timestamp):
         return dt.strftime("%Y-%m-%d %H:%M:%S")
     except (ValueError, OSError):
         return "Unknown"
+
+
+def is_critical_system_file(file_path):
+    """
+    Check if a file is critical for Ubuntu system operation.
+    
+    Args:
+        file_path (str): Path to the file to check
+        
+    Returns:
+        bool: True if file is critical and should be protected
+    """
+    try:
+        normalized_path = os.path.normpath(file_path)
+        
+        # Critical system files that could crash Ubuntu
+        critical_files = [
+            # Kernel and boot files
+            '/boot/vmlinuz',
+            '/boot/initrd.img',
+            '/boot/grub/grub.cfg',
+            '/boot/grub/grubenv',
+            
+            # Essential system binaries
+            '/bin/bash',
+            '/bin/sh',
+            '/bin/rm',
+            '/bin/mv',
+            '/bin/cp',
+            '/bin/ls',
+            '/bin/cat',
+            '/bin/mkdir',
+            '/bin/rmdir',
+            '/bin/chmod',
+            '/bin/chown',
+            '/bin/sudo',
+            '/bin/su',
+            
+            # System libraries
+            '/lib/ld-linux.so',
+            '/lib64/ld-linux-x86-64.so',
+            '/lib/systemd/systemd',
+            
+            # Configuration files
+            '/etc/passwd',
+            '/etc/shadow',
+            '/etc/group',
+            '/etc/sudoers',
+            '/etc/fstab',
+            '/etc/hosts',
+            '/etc/resolv.conf',
+            '/etc/network/interfaces',
+            '/etc/systemd/system.conf',
+            
+            # Package management
+            '/usr/bin/dpkg',
+            '/usr/bin/apt',
+            '/usr/bin/apt-get',
+            '/usr/bin/apt-cache',
+            
+            # Network tools
+            '/usr/bin/ssh',
+            '/usr/bin/sshd',
+            '/usr/sbin/sshd',
+            
+            # System services
+            '/usr/bin/systemctl',
+            '/usr/sbin/service',
+        ]
+        
+        # Check if the file matches any critical file
+        for critical_file in critical_files:
+            if normalized_path == critical_file or normalized_path.endswith(critical_file):
+                return True
+                
+        # Check for critical file patterns
+        critical_patterns = [
+            '/boot/vmlinuz-',
+            '/boot/initrd.img-',
+            '/lib/modules/',
+            '/usr/lib/python',
+            '/usr/bin/python',
+            '/usr/bin/python3',
+        ]
+        
+        for pattern in critical_patterns:
+            if pattern in normalized_path:
+                return True
+                
+        return False
+        
+    except (OSError, ValueError):
+        return True  # Err on the side of caution
+
+
+def is_safe_to_delete(file_path):
+    """
+    Check if a file is safe to delete (won't crash the system).
+    
+    Args:
+        file_path (str): Path to the file to check
+        
+    Returns:
+        tuple: (is_safe: bool, reason: str)
+    """
+    try:
+        # Check if it's a critical system file
+        if is_critical_system_file(file_path):
+            return False, "Critical system file - deletion could crash Ubuntu"
+            
+        # Check if it's in a protected directory
+        if not is_safe_path(file_path, os.getcwd()):
+            return False, "File is in a protected system directory"
+            
+        # Check if it's a system binary or library
+        normalized_path = os.path.normpath(file_path)
+        if any(normalized_path.startswith(prefix) for prefix in ['/bin/', '/sbin/', '/usr/bin/', '/usr/sbin/', '/lib/', '/usr/lib/']):
+            return False, "System binary/library - deletion could break Ubuntu"
+            
+        return True, "Safe to delete"
+        
+    except (OSError, ValueError):
+        return False, "Cannot access file - assuming unsafe"
 
 
 def get_platform_info():

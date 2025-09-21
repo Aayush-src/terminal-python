@@ -204,6 +204,9 @@ Package Management:
   pip uninstall <package>  - Uninstall a Python package
   pip list                 - List all installed packages
   pip check <package>      - Check if a package is installed
+  
+  Note: In hosted environments (like Streamlit Cloud), some packages
+        may fail to install due to permission restrictions.
 
 System Monitoring:
   cpu                      - Show CPU usage information
@@ -310,7 +313,7 @@ Note: File operations are now more permissive for better usability.
 
             # Use sys.executable to ensure correct Python environment
             result = subprocess.run(
-                [sys.executable, "-m", "pip", "install", package_name],
+                [sys.executable, "-m", "pip", "install", package_name, "--user"],
                 capture_output=True,
                 text=True,
                 check=True
@@ -320,7 +323,14 @@ Note: File operations are now more permissive for better usability.
 
         except subprocess.CalledProcessError as e:
             error_msg = e.stderr.strip() if e.stderr else "Unknown error occurred"
-            return f"❌ Failed to install {package_name}: {error_msg}"
+
+            # Handle common permission errors
+            if "Permission denied" in error_msg or "Errno 13" in error_msg:
+                return f"❌ Permission denied: Cannot install {package_name} on this server.\n💡 This is a hosted environment with restricted permissions.\n🔧 Try: pip install {package_name} --user (if supported)"
+            elif "Could not install packages" in error_msg:
+                return f"❌ Installation failed: {package_name} cannot be installed on this server.\n💡 Some packages require system-level access that's not available in hosted environments."
+            else:
+                return f"❌ Failed to install {package_name}: {error_msg}"
         except Exception as e:
             return f"❌ Error installing {package_name}: {str(e)}"
 
@@ -348,7 +358,12 @@ Note: File operations are now more permissive for better usability.
 
         except subprocess.CalledProcessError as e:
             error_msg = e.stderr.strip() if e.stderr else "Unknown error occurred"
-            return f"❌ Failed to uninstall {package_name}: {error_msg}"
+
+            # Handle common permission errors
+            if "Permission denied" in error_msg or "Errno 13" in error_msg:
+                return f"❌ Permission denied: Cannot uninstall {package_name} on this server.\n💡 This is a hosted environment with restricted permissions."
+            else:
+                return f"❌ Failed to uninstall {package_name}: {error_msg}"
         except Exception as e:
             return f"❌ Error uninstalling {package_name}: {str(e)}"
 

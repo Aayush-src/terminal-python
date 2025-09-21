@@ -4,7 +4,7 @@ File and directory operations for the terminal.
 import os
 import shutil
 from typing import List, Tuple
-from utils.helpers import normalize_path, is_safe_path, format_file_size, format_timestamp, get_file_permissions
+from utils.helpers import normalize_path, is_safe_path, format_file_size, format_timestamp, get_file_permissions, is_safe_to_delete
 
 
 def ls_command(cwd: str, args: List[str]) -> str:
@@ -268,7 +268,12 @@ def rm_command(cwd: str, args: List[str]) -> str:
             if not os.path.exists(item_path):
                 return f"Error: '{item_name}' not found"
 
-            # Safety check - prevent dangerous operations
+            # Enhanced safety check for Ubuntu system protection
+            is_safe, reason = is_safe_to_delete(item_path)
+            if not is_safe:
+                return f"Error: Cannot remove '{item_name}' - {reason}"
+
+            # Additional safety check - prevent dangerous operations
             if item_path in ['/', '\\', 'C:\\', '/home', '/root']:
                 return f"Error: Cannot remove system directory '{item_name}'"
 
@@ -524,6 +529,11 @@ def del_command(cwd: str, args: List[str]) -> str:
 
             if not os.path.exists(file_path):
                 return f"Error: File '{file_name}' not found"
+
+            # Enhanced safety check for Ubuntu system protection
+            is_safe, reason = is_safe_to_delete(file_path)
+            if not is_safe:
+                return f"Error: Cannot delete '{file_name}' - {reason}"
 
             if os.path.isdir(file_path):
                 return f"Error: '{file_name}' is a directory (use rmdir for directories)"

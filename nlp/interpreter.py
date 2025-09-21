@@ -241,6 +241,75 @@ def interpret_nl_query(query: str) -> str:
     query = query.strip()
     query_lower = query.lower()
 
+    # Handle complex multi-step commands first
+    if ' and ' in query_lower or ' then ' in query_lower or ' after that ' in query_lower:
+        return handle_multi_step_command(query)
+
+    # Handle single-step file/folder creation commands
+    if any(word in query_lower for word in ['create', 'make', 'new']):
+        if any(word in query_lower for word in ['file']):
+            # Extract file name
+            file_name = extract_entity_from_step(query, ['file'])
+            if file_name:
+                return f"touch {file_name}"
+            else:
+                return "touch new_file.txt"
+        elif any(word in query_lower for word in ['folder', 'directory', 'dir']):
+            # Extract folder name
+            folder_name = extract_entity_from_step(
+                query, ['folder', 'directory', 'dir'])
+            if folder_name:
+                return f"mkdir {folder_name}"
+            else:
+                return "mkdir new_folder"
+
+    # Handle delete/remove commands
+    elif any(word in query_lower for word in ['delete', 'remove', 'rm', 'del']):
+        # Extract target name (file or folder)
+        target = extract_entity_from_step(
+            query, ['delete', 'remove', 'rm', 'del'])
+        if target:
+            return f"rm {target}"
+        else:
+            return "echo 'Please specify what to delete'"
+
+    # Handle copy commands
+    elif any(word in query_lower for word in ['copy', 'cp', 'duplicate']):
+        # Extract source and destination
+        source = extract_entity_from_step(query, ['copy', 'cp', 'duplicate'])
+        dest = extract_entity_from_step(query, ['to', 'into', 'as'])
+        if source and dest:
+            return f"copy {source} {dest}"
+        else:
+            return "echo 'Please specify source and destination for copy operation'"
+
+    # Handle move/rename commands
+    elif any(word in query_lower for word in ['move', 'rename', 'mv']):
+        # Extract source and destination
+        source = extract_entity_from_step(query, ['move', 'rename', 'mv'])
+        dest = extract_entity_from_step(query, ['to', 'as'])
+        if source and dest:
+            return f"move {source} {dest}"
+        else:
+            return "echo 'Please specify source and destination for move operation'"
+
+    # Handle navigation commands
+    elif any(word in query_lower for word in ['go to', 'navigate', 'change to', 'cd']):
+        # Extract directory
+        directory = extract_entity_from_step(
+            query, ['go to', 'navigate', 'change to', 'cd'])
+        if directory:
+            return f"cd {directory}"
+        else:
+            return "cd"
+
+    # Handle list commands
+    elif any(word in query_lower for word in ['list', 'show', 'display', 'files']):
+        if any(word in query_lower for word in ['all', 'hidden', 'detailed']):
+            return "ls -la"
+        else:
+            return "ls"
+
     # Quick pattern matching for common commands
     if any(word in query_lower for word in ['cpu', 'processor', 'performance']):
         return "cpu"
@@ -290,6 +359,91 @@ def interpret_nl_query(query: str) -> str:
     return command if command != "echo 'Command not recognized'" else f"echo 'NLP interpretation not available yet. You said: \"{query}\". Try using direct commands like ls, cd, mkdir, touch, copy, move, etc.'"
 
 
+def is_nlp_command(command: str) -> bool:
+    """
+    Check if a command is an NLP command.
+
+    Auto-detects NLP commands by checking if the command is NOT a known system command.
+    Also supports explicit !NLP prefix for backward compatibility.
+
+    Args:
+        command (str): Command to check
+
+    Returns:
+        bool: True if it's an NLP command
+    """
+    command = command.strip()
+
+    # Explicit !NLP prefix (backward compatibility)
+    if command.lower().startswith('!nlp'):
+        return True
+
+    # Auto-detection: if not a known system command, treat as NLP
+    return not is_system_command(command)
+
+
+def is_system_command(command: str) -> bool:
+    """
+    Check if a command is a known system command.
+
+    Args:
+        command (str): Command to check
+
+    Returns:
+        bool: True if it's a known system command
+    """
+    if not command.strip():
+        return False
+
+    # Get the first word (command name)
+    cmd = command.strip().split()[0].lower()
+
+    # List of known system commands
+    system_commands = {
+        # Navigation commands
+        'ls', 'dir', 'cd', 'pwd', 'root',
+
+        # Directory operations
+        'mkdir', 'rmdir',
+
+        # File operations
+        'rm', 'del', 'touch', 'copy', 'cp', 'move', 'mv',
+
+        # System monitoring
+        'cpu', 'mem', 'ps', 'disk',
+
+        # Package management
+        'pip',
+
+        # Special commands
+        'help', 'clear', 'exit', 'quit'
+    }
+
+    return cmd in system_commands
+
+
+def extract_nlp_query(command: str) -> str:
+    """
+    Extract the natural language query from an NLP command.
+
+    Handles both explicit !NLP prefix and auto-detected NLP commands.
+
+    Args:
+        command (str): Full NLP command
+
+    Returns:
+        str: Extracted query
+    """
+    command = command.strip()
+
+    # If it has explicit !NLP prefix, remove it
+    if command.lower().startswith('!nlp'):
+        return command[5:].strip()  # Remove '!nlp' prefix
+
+    # For auto-detected NLP commands, return the full command as the query
+    return command
+
+
 def get_supported_patterns() -> list:
     """
     Get list of supported natural language patterns.
@@ -311,29 +465,147 @@ def get_supported_patterns() -> list:
     ]
 
 
-def is_nlp_command(command: str) -> bool:
+def handle_multi_step_command(query: str) -> str:
     """
-    Check if a command is an NLP command (starts with !nlp).
+    Handle complex multi-step commands like "create a folder test and move file1.txt into it".
 
     Args:
-        command (str): Command to check
+        query (str): Multi-step natural language query
 
     Returns:
-        bool: True if it's an NLP command
+        str: Combined commands to execute
     """
-    return command.strip().startswith('!nlp')
+    query_lower = query.lower().strip()
+
+    # Split by common connectors
+    connectors = [' and ', ' then ', ' after that ', ' next ', ' also ']
+    steps = [query]
+
+    for connector in connectors:
+        if connector in query_lower:
+            steps = query_lower.split(connector)
+            break
+
+    commands = []
+
+    for step in steps:
+        step = step.strip()
+        if not step:
+            continue
+
+        # Analyze each step
+        if any(word in step for word in ['create', 'make', 'new']):
+            if any(word in step for word in ['folder', 'directory', 'dir']):
+                # Extract folder name
+                folder_name = extract_entity_from_step(
+                    step, ['folder', 'directory', 'dir'])
+                if folder_name:
+                    commands.append(f"mkdir {folder_name}")
+            elif any(word in step for word in ['file']):
+                # Extract file name
+                file_name = extract_entity_from_step(step, ['file'])
+                if file_name:
+                    commands.append(f"touch {file_name}")
+
+        elif any(word in step for word in ['move', 'copy', 'rename']):
+            # Extract source and destination
+            source = extract_entity_from_step(step, ['move', 'copy', 'rename'])
+            dest = extract_entity_from_step(step, ['to', 'into', 'as'])
+
+            if source and dest:
+                if 'move' in step or 'rename' in step:
+                    commands.append(f"move {source} {dest}")
+                elif 'copy' in step:
+                    commands.append(f"copy {source} {dest}")
+
+        elif any(word in step for word in ['delete', 'remove']):
+            # Extract target
+            target = extract_entity_from_step(step, ['delete', 'remove'])
+            if target:
+                commands.append(f"rm {target}")
+
+        elif any(word in step for word in ['list', 'show', 'display']):
+            commands.append("ls")
+
+        elif any(word in step for word in ['go to', 'navigate', 'change to']):
+            # Extract directory
+            directory = extract_entity_from_step(
+                step, ['go to', 'navigate', 'change to'])
+            if directory:
+                commands.append(f"cd {directory}")
+
+    # Return combined commands
+    if commands:
+        return " && ".join(commands)
+    else:
+        return f"echo 'Could not parse multi-step command: {query}'"
 
 
-def extract_nlp_query(command: str) -> str:
+def extract_entity_from_step(step: str, keywords: List[str]) -> str:
     """
-    Extract the natural language query from an NLP command.
+    Extract entity (file/folder name) from a step.
 
     Args:
-        command (str): NLP command (e.g., "!nlp show me the files")
+        step (str): The step text
+        keywords (List[str]): Keywords to look for
 
     Returns:
-        str: Extracted natural language query
+        str: Extracted entity name
     """
-    if is_nlp_command(command):
-        return command[4:].strip()  # Remove "!nlp" prefix
-    return command
+    import re
+
+    # Try to find quoted names first
+    quoted = re.findall(r'"([^"]*)"', step)
+    if quoted:
+        return quoted[0]
+
+    quoted = re.findall(r"'([^']*)'", step)
+    if quoted:
+        return quoted[0]
+
+    # Look for patterns like "named X", "called X", "as X"
+    named_patterns = [
+        r'named\s+([a-zA-Z0-9._-]+)',
+        r'called\s+([a-zA-Z0-9._-]+)',
+        r'as\s+([a-zA-Z0-9._-]+)',
+        r'with\s+name\s+([a-zA-Z0-9._-]+)'
+    ]
+
+    for pattern in named_patterns:
+        match = re.search(pattern, step, re.IGNORECASE)
+        if match:
+            return match.group(1)
+
+    # Look for file extensions (.txt, .py, .js, etc.) - prioritize this
+    file_pattern = r'([a-zA-Z0-9._-]+\.[a-zA-Z0-9]+)'
+    file_match = re.search(file_pattern, step)
+    if file_match:
+        return file_match.group(1)
+
+    # Look for folder/directory names (no extension)
+    folder_pattern = r'\b([a-zA-Z0-9_-]+)\b'
+    folder_matches = re.findall(folder_pattern, step)
+    # Filter out common words and action words
+    common_words = {'a', 'an', 'the', 'new', 'create', 'make', 'delete', 'remove', 'copy', 'move',
+                    'rename', 'file', 'folder', 'directory', 'dir', 'to', 'into', 'as', 'named', 'called', 'with', 'name'}
+    for match in folder_matches:
+        if match.lower() not in common_words and len(match) > 1:
+            return match
+
+    # Fallback: look for words after keywords
+    words = step.split()
+    for i, word in enumerate(words):
+        if word.lower() in keywords and i + 1 < len(words):
+            # Skip common words like "a", "the", "new"
+            next_word = words[i + 1].lower()
+            if next_word in ['a', 'an', 'the', 'new'] and i + 2 < len(words):
+                entity = words[i + 2]
+            else:
+                entity = words[i + 1]
+            # Clean up the entity name
+            entity = entity.strip('.,!?;:"')
+            # Don't return the action word itself as entity
+            if entity.lower() not in keywords:
+                return entity
+
+    return None

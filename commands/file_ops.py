@@ -75,24 +75,19 @@ def ls_command(cwd: str, args: List[str]) -> str:
 def _format_long_listing(items: List[str], base_path: str) -> str:
     """Format directory listing in long format."""
     lines = []
-    total_size = 0
 
     for item in items:
         item_path = os.path.join(base_path, item)
         try:
             stat_info = os.stat(item_path)
-            total_size += stat_info.st_size
 
-            # File type and permissions
+            # File type indicator
             if os.path.isdir(item_path):
-                file_type = 'd'
+                file_type = '[DIR]'
             elif os.path.islink(item_path):
-                file_type = 'l'
+                file_type = '[LINK]'
             else:
-                file_type = '-'
-
-            permissions = get_file_permissions(item_path)
-            perms = file_type + permissions
+                file_type = '[FILE]'
 
             # Size
             size = format_file_size(stat_info.st_size)
@@ -109,37 +104,21 @@ def _format_long_listing(items: List[str], base_path: str) -> str:
                 except OSError:
                     name = f"{item} -> (broken link)"
 
-            lines.append(f"{perms} {size:>8} {date_modified} {name}")
+            lines.append(f"{file_type:>6} {size:>8} {date_modified} {name}")
 
         except (OSError, ValueError):
-            lines.append(f"?????????? ????????? {item} (error reading file)")
+            lines.append(f"[ERR] {'':>8} {'':>19} {item} (error reading file)")
 
-    # Add total size at the beginning
-    result = [f"total {total_size}"]
-    result.extend(lines)
-    return "\n".join(result)
+    return "\n".join(lines)
 
 
 def _format_simple_listing(items: List[str]) -> str:
     """Format directory listing in simple format."""
-    # Group items into columns for better display
     if not items:
         return ""
 
-    # Calculate optimal column width
-    max_width = max(len(item) for item in items) + 2
-    terminal_width = 80  # Default terminal width
-    cols = max(1, terminal_width // max_width)
-
-    # Format items in columns
-    lines = []
-    for i in range(0, len(items), cols):
-        row_items = items[i:i + cols]
-        # Pad each item to max_width
-        formatted_items = [item.ljust(max_width) for item in row_items]
-        lines.append("".join(formatted_items).rstrip())
-
-    return "\n".join(lines)
+    # Simple, clean format - one item per line for better readability
+    return "\n".join(items)
 
 
 def cd_command(cwd: str, args: List[str]) -> Tuple[str, str]:

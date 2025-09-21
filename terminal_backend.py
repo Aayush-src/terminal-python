@@ -2,6 +2,9 @@
 Terminal backend with command execution and routing.
 """
 import os
+import sys
+import subprocess
+import importlib.util
 from typing import Tuple, Optional
 from commands.file_ops import (
     ls_command, cd_command, pwd_command, mkdir_command, rm_command,
@@ -67,9 +70,13 @@ class CommandExecutor:
             if not command.strip():
                 return "", cwd, True
 
+            # Handle multi-step commands (separated by &&)
+            if ' && ' in command:
+                return self.execute_multi_step_command(command, cwd)
+
             # Handle NLP commands
             if is_nlp_command(command):
-                nl_query = extract_nl_query(command)
+                nl_query = extract_nlp_query(command)
                 translated_command = interpret_nl_query(nl_query)
                 return self.execute_command(translated_command, cwd)
 
@@ -81,9 +88,14 @@ class CommandExecutor:
             cmd = parts[0].lower()
             args = parts[1:] if len(parts) > 1 else []
 
-            # Check if command exists
-            if cmd not in self.commands:
+            # Check if command exists or is pip command
+            if cmd not in self.commands and cmd != "pip":
                 return f"Command not found: {cmd}\nType 'help' for available commands", cwd, True
+
+            # Handle pip commands
+            if cmd == "pip":
+                output = self.handle_pip_command(parts)
+                return output, cwd, True
 
             # Execute the command
             handler = self.commands[cmd]
@@ -118,6 +130,42 @@ class CommandExecutor:
         except Exception as e:
             return f"Error executing command: {str(e)}", cwd, True
 
+    def execute_multi_step_command(self, command: str, cwd: str) -> Tuple[str, str, bool]:
+        """
+        Execute multiple commands separated by &&.
+
+        Args:
+            command (str): Multi-step command (e.g., "mkdir test && move file.txt test")
+            cwd (str): Current working directory
+
+        Returns:
+            Tuple[str, str, bool]: (combined_output, final_cwd, should_continue)
+        """
+        try:
+            steps = command.split(' && ')
+            outputs = []
+            current_cwd = cwd
+
+            for step in steps:
+                step = step.strip()
+                if not step:
+                    continue
+
+                output, new_cwd, should_continue = self.execute_command(
+                    step, current_cwd)
+                outputs.append(output)
+                current_cwd = new_cwd
+
+                if not should_continue:
+                    break
+
+            # Combine outputs
+            combined_output = '\n'.join(filter(None, outputs))
+            return combined_output, current_cwd, True
+
+        except Exception as e:
+            return f"Error executing multi-step command: {str(e)}", cwd, True
+
     def _root_command(self, args: list) -> Tuple[str, str]:
         """Change to root directory."""
         import os
@@ -151,6 +199,12 @@ File Operations:
   move <src> <dest>        - Move/rename file/directory (Windows style)
   mv <src> <dest>          - Move/rename file/directory (Linux/macOS style)
 
+Package Management:
+  pip install <package>    - Install a Python package
+  pip uninstall <package>  - Uninstall a Python package
+  pip list                 - List all installed packages
+  pip check <package>      - Check if a package is installed
+
 System Monitoring:
   cpu                      - Show CPU usage information
   mem                      - Show memory usage information
@@ -173,6 +227,7 @@ Cross-Platform Support:
   - All commands work on Windows, macOS, and Linux
   - Use Windows-style commands (dir, copy, move, del) or Linux-style (ls, cp, mv, rm)
   - Path separators work with both / and \\
+  - Pip commands use the current Python environment
 
 Note: File operations are now more permissive for better usability.
         """
@@ -197,4 +252,161 @@ Note: File operations are now more permissive for better usability.
             return False
 
         cmd = parts[0].lower()
-        return cmd in self.commands or is_nlp_command(command)
+        return cmd in self.commands or is_nlp_command(command) or cmd == "pip"
+
+    def handle_pip_command(self, cmd_tokens: list[str], simulate: bool = False) -> str:
+        """
+        Handle pip package management commands.
+
+        Args:
+            cmd_tokens: List of command tokens (e.g., ['pip', 'install', 'numpy'])
+            simulate: If True, simulate the operation without actually executing
+
+        Returns:
+            str: Output message for the terminal
+        """
+        if len(cmd_tokens) < 2:
+            return "Usage: pip <install|uninstall|list|check> [package_name]"
+
+        operation = cmd_tokens[1].lower()
+        package_name = cmd_tokens[2] if len(cmd_tokens) > 2 else None
+
+        try:
+            if operation == "install":
+                if not package_name:
+                    return "Error: Package name required for install command"
+                return self._pip_install(package_name, simulate)
+
+            elif operation == "uninstall":
+                if not package_name:
+                    return "Error: Package name required for uninstall command"
+                return self._pip_uninstall(package_name, simulate)
+
+            elif operation == "list":
+                return self._pip_list(simulate)
+
+            elif operation == "check":
+                if not package_name:
+                    return "Error: Package name required for check command"
+                return self._pip_check(package_name, simulate)
+
+            else:
+                return f"Error: Unknown pip operation '{operation}'. Available: install, uninstall, list, check"
+
+        except Exception as e:
+            return f"Error executing pip command: {str(e)}"
+
+    def _pip_install(self, package_name: str, simulate: bool = False) -> str:
+        """Install a package using pip."""
+        if simulate:
+            return f"🔧 [SIMULATE] Installing {package_name}...\n✅ [SIMULATE] {package_name} installed successfully."
+
+        try:
+            # Check if already installed
+            if self._is_package_installed(package_name):
+                return f"ℹ️  {package_name} is already installed."
+
+            print(f"Installing {package_name}...")
+
+            # Use sys.executable to ensure correct Python environment
+            result = subprocess.run(
+                [sys.executable, "-m", "pip", "install", package_name],
+                capture_output=True,
+                text=True,
+                check=True
+            )
+
+            return f"✅ {package_name} installed successfully."
+
+        except subprocess.CalledProcessError as e:
+            error_msg = e.stderr.strip() if e.stderr else "Unknown error occurred"
+            return f"❌ Failed to install {package_name}: {error_msg}"
+        except Exception as e:
+            return f"❌ Error installing {package_name}: {str(e)}"
+
+    def _pip_uninstall(self, package_name: str, simulate: bool = False) -> str:
+        """Uninstall a package using pip."""
+        if simulate:
+            return f"🔧 [SIMULATE] Uninstalling {package_name}...\n✅ [SIMULATE] {package_name} removed successfully."
+
+        try:
+            # Check if package is installed
+            if not self._is_package_installed(package_name):
+                return f"ℹ️  {package_name} is not installed."
+
+            print(f"Uninstalling {package_name}...")
+
+            # Use sys.executable to ensure correct Python environment
+            result = subprocess.run(
+                [sys.executable, "-m", "pip", "uninstall", package_name, "-y"],
+                capture_output=True,
+                text=True,
+                check=True
+            )
+
+            return f"✅ {package_name} removed successfully."
+
+        except subprocess.CalledProcessError as e:
+            error_msg = e.stderr.strip() if e.stderr else "Unknown error occurred"
+            return f"❌ Failed to uninstall {package_name}: {error_msg}"
+        except Exception as e:
+            return f"❌ Error uninstalling {package_name}: {str(e)}"
+
+    def _pip_list(self, simulate: bool = False) -> str:
+        """List installed packages."""
+        if simulate:
+            return "🔧 [SIMULATE] Listing installed packages...\n📦 [SIMULATE] numpy==1.21.0\n📦 [SIMULATE] pandas==1.3.0\n📦 [SIMULATE] requests==2.25.1"
+
+        try:
+            # Use sys.executable to ensure correct Python environment
+            result = subprocess.run(
+                [sys.executable, "-m", "pip", "list"],
+                capture_output=True,
+                text=True,
+                check=True
+            )
+
+            # Clean up the output for better display
+            output_lines = result.stdout.strip().split('\n')
+            if len(output_lines) > 2:  # Skip header lines
+                # Skip "Package Version" and "---" lines
+                packages = output_lines[2:]
+                formatted_packages = []
+                for package in packages:
+                    if package.strip():
+                        formatted_packages.append(f"📦 {package.strip()}")
+
+                if formatted_packages:
+                    return "Installed packages:\n" + "\n".join(formatted_packages)
+                else:
+                    return "No packages found."
+            else:
+                return "No packages found."
+
+        except subprocess.CalledProcessError as e:
+            error_msg = e.stderr.strip() if e.stderr else "Unknown error occurred"
+            return f"❌ Failed to list packages: {error_msg}"
+        except Exception as e:
+            return f"❌ Error listing packages: {str(e)}"
+
+    def _pip_check(self, package_name: str, simulate: bool = False) -> str:
+        """Check if a package is installed."""
+        if simulate:
+            return f"🔧 [SIMULATE] Checking if {package_name} is installed...\n✅ [SIMULATE] {package_name} is installed."
+
+        try:
+            if self._is_package_installed(package_name):
+                return f"✅ {package_name} is installed."
+            else:
+                return f"❌ {package_name} is not installed."
+
+        except Exception as e:
+            return f"❌ Error checking {package_name}: {str(e)}"
+
+    def _is_package_installed(self, package_name: str) -> bool:
+        """Check if a package is installed using importlib.util.find_spec."""
+        try:
+            spec = importlib.util.find_spec(package_name)
+            return spec is not None
+        except (ImportError, ValueError, AttributeError):
+            return False

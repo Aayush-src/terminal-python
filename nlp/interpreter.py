@@ -8,14 +8,14 @@ from typing import List, Dict, Tuple, Optional
 from datetime import datetime
 
 
-# NLP Pattern Database
+# Enhanced NLP Pattern Database with comprehensive keyword coverage
 COMMAND_PATTERNS = {
     'list_files': {
-        'keywords': ['list', 'show', 'display', 'files', 'contents', 'what', 'see'],
+        'keywords': ['list', 'show', 'display', 'files', 'contents', 'what', 'see', 'view', 'ls', 'dir', 'directory', 'folder', 'items', 'stuff', 'things'],
         'modifiers': {
-            'detailed': ['all', 'detailed', 'long', 'full', 'info'],
-            'hidden': ['hidden', 'dot', 'all'],
-            'directory': ['directory', 'folder', 'dir', 'in']
+            'detailed': ['all', 'detailed', 'long', 'full', 'info', 'information', 'complete', 'verbose'],
+            'hidden': ['hidden', 'dot', 'all', 'including', 'with'],
+            'directory': ['directory', 'folder', 'dir', 'in', 'inside', 'within']
         },
         'command': 'ls',
         'flags': {
@@ -24,43 +24,56 @@ COMMAND_PATTERNS = {
         }
     },
     'navigate': {
-        'keywords': ['go', 'change', 'navigate', 'enter', 'open', 'cd'],
+        'keywords': ['go', 'change', 'navigate', 'enter', 'open', 'cd', 'switch', 'move to', 'browse to', 'access', 'visit'],
         'targets': {
-            'home': ['home', '~'],
-            'root': ['root', 'system', '/'],
-            'parent': ['up', 'back', '..'],
-            'current': ['here', 'current', '.']
+            'home': ['home', '~', 'user', 'user directory'],
+            'root': ['root', 'system', '/', 'top', 'main'],
+            'parent': ['up', 'back', '..', 'previous', 'parent directory'],
+            'current': ['here', 'current', '.', 'this']
         },
         'command': 'cd'
     },
     'create_directory': {
-        'keywords': ['create', 'make', 'new', 'add'],
-        'targets': ['directory', 'folder', 'dir'],
+        'keywords': ['create', 'make', 'new', 'add', 'build', 'generate', 'establish', 'set up', 'initialize'],
+        'targets': ['directory', 'folder', 'dir', 'path', 'location'],
         'command': 'mkdir'
     },
     'create_file': {
-        'keywords': ['create', 'make', 'new', 'add', 'touch'],
-        'targets': ['file', 'document'],
+        'keywords': ['create', 'make', 'new', 'add', 'build', 'generate', 'establish', 'touch', 'write'],
+        'targets': ['file', 'document', 'text', 'script', 'program'],
         'command': 'touch'
     },
     'delete': {
-        'keywords': ['delete', 'remove', 'rm', 'del', 'trash'],
+        'keywords': ['delete', 'remove', 'rm', 'del', 'trash', 'erase', 'eliminate', 'destroy', 'get rid of', 'clean up', 'purge', 'drop', 'kill'],
+        'targets': ['file', 'directory', 'folder', 'item', 'thing', 'stuff'],
         'command': 'rm'
     },
     'copy': {
-        'keywords': ['copy', 'duplicate', 'clone', 'cp'],
+        'keywords': ['copy', 'duplicate', 'clone', 'cp', 'replicate', 'backup', 'save as', 'make a copy'],
         'command': 'copy'
     },
     'move': {
-        'keywords': ['move', 'rename', 'mv', 'relocate'],
+        'keywords': ['move', 'rename', 'mv', 'relocate', 'transfer', 'shift', 'change location', 'reposition'],
         'command': 'move'
     },
     'system_info': {
-        'cpu': ['cpu', 'processor', 'performance', 'speed'],
-        'memory': ['memory', 'ram', 'usage', 'mem'],
-        'processes': ['process', 'processes', 'running', 'task', 'ps'],
-        'disk': ['disk', 'space', 'storage', 'capacity']
+        'cpu': ['cpu', 'processor', 'performance', 'speed', 'usage', 'load', 'cores'],
+        'memory': ['memory', 'ram', 'usage', 'mem', 'storage', 'available', 'free'],
+        'processes': ['process', 'processes', 'running', 'task', 'ps', 'programs', 'applications'],
+        'disk': ['disk', 'space', 'storage', 'capacity', 'drive', 'volume', 'usage']
     }
+}
+
+# Enhanced synonym mappings for better recognition
+SYNONYM_MAPPINGS = {
+    'delete': ['remove', 'rm', 'del', 'trash', 'erase', 'eliminate', 'destroy', 'get rid of', 'clean up', 'purge', 'drop', 'kill', 'wipe', 'clear'],
+    'directory': ['folder', 'dir', 'path', 'location', 'place'],
+    'file': ['document', 'text', 'script', 'program', 'item'],
+    'create': ['make', 'new', 'add', 'build', 'generate', 'establish', 'set up', 'initialize'],
+    'show': ['list', 'display', 'view', 'see', 'present', 'reveal'],
+    'go': ['navigate', 'change', 'enter', 'open', 'switch', 'move to', 'browse to', 'access', 'visit'],
+    'copy': ['duplicate', 'clone', 'cp', 'replicate', 'backup', 'save as', 'make a copy'],
+    'move': ['rename', 'mv', 'relocate', 'transfer', 'shift', 'change location', 'reposition']
 }
 
 # Intent Recognition Patterns
@@ -73,34 +86,64 @@ INTENT_PATTERNS = {
 
 
 def extract_entities(text: str) -> Dict[str, List[str]]:
-    """Extract named entities from text using regex patterns."""
+    """Extract named entities from text using enhanced regex patterns."""
     entities = {
         'files': [],
         'directories': [],
         'commands': [],
         'flags': [],
-        'numbers': []
+        'numbers': [],
+        'paths': []
     }
 
-    # Extract file names (with extensions)
-    file_pattern = r'\b\w+\.\w+\b'
+    # Extract file names (with extensions) - more comprehensive pattern
+    file_pattern = r'\b[a-zA-Z0-9._-]+\.\w+\b'
     entities['files'] = re.findall(file_pattern, text)
 
-    # Extract directory names
-    dir_pattern = r'\b\w+(?:/\w+)*\b'
+    # Extract directory names - improved pattern
+    dir_pattern = r'\b[a-zA-Z0-9._-]+(?:/[a-zA-Z0-9._-]+)*\b'
     entities['directories'] = re.findall(dir_pattern, text)
+
+    # Extract full paths (including quoted paths)
+    path_pattern = r'["\']([^"\']+)["\']|([a-zA-Z]:\\[^\\s]+|[a-zA-Z0-9._-]+(?:/[a-zA-Z0-9._-]+)*)'
+    path_matches = re.findall(path_pattern, text)
+    for match in path_matches:
+        path = match[0] if match[0] else match[1]
+        if path and ('/' in path or '\\' in path or '.' in path):
+            entities['paths'].append(path)
 
     # Extract numbers
     number_pattern = r'\b\d+\b'
     entities['numbers'] = re.findall(number_pattern, text)
 
+    # Extract flags
+    flag_pattern = r'-\w+'
+    entities['flags'] = re.findall(flag_pattern, text)
+
     return entities
 
 
+def expand_synonyms(text: str) -> str:
+    """Expand synonyms in text for better pattern matching."""
+    text_lower = text.lower()
+
+    for base_word, synonyms in SYNONYM_MAPPINGS.items():
+        for synonym in synonyms:
+            if synonym in text_lower:
+                # Replace synonym with base word for consistent matching
+                text_lower = text_lower.replace(synonym, base_word)
+
+    return text_lower
+
+
 def calculate_similarity(text1: str, text2: str) -> float:
-    """Calculate simple similarity between two strings."""
-    words1 = set(text1.lower().split())
-    words2 = set(text2.lower().split())
+    """Calculate enhanced similarity between two strings using synonym expansion."""
+    # Expand synonyms in both texts
+    text1_expanded = expand_synonyms(text1.lower())
+    text2_expanded = expand_synonyms(text2.lower())
+
+    words1 = set(text1_expanded.split())
+    words2 = set(text2_expanded.split())
 
     if not words1 or not words2:
         return 0.0
@@ -108,7 +151,10 @@ def calculate_similarity(text1: str, text2: str) -> float:
     intersection = words1.intersection(words2)
     union = words1.union(words2)
 
-    return len(intersection) / len(union)
+    # Boost score for exact matches
+    exact_match_boost = 0.2 if text1.lower() == text2.lower() else 0.0
+
+    return min(1.0, len(intersection) / len(union) + exact_match_boost)
 
 
 def get_best_match(query: str, patterns: Dict) -> Tuple[str, float]:
@@ -263,69 +309,82 @@ def interpret_nl_query(query: str) -> str:
             else:
                 return "mkdir new_folder"
 
-    # Handle delete/remove commands
-    elif any(word in query_lower for word in ['delete', 'remove', 'rm', 'del']):
-        # Extract target name (file or folder)
-        target = extract_entity_from_step(
-            query, ['delete', 'remove', 'rm', 'del'])
+    # Handle delete/remove commands with enhanced recognition
+    elif any(word in query_lower for word in ['delete', 'remove', 'rm', 'del', 'trash', 'erase', 'eliminate', 'destroy', 'get rid of', 'clean up', 'purge', 'drop', 'kill', 'wipe', 'clear']):
+        # Extract target name (file or folder) with better patterns
+        target = extract_entity_from_step_enhanced(query, ['delete', 'remove', 'rm', 'del', 'trash', 'erase',
+                                                   'eliminate', 'destroy', 'get rid of', 'clean up', 'purge', 'drop', 'kill', 'wipe', 'clear'])
+
         if target:
-            return f"rm {target}"
+            # Check if it's likely a directory (no extension, common directory words)
+            if not target.count('.') and any(word in query_lower for word in ['directory', 'folder', 'dir']):
+                return f"rmdir {target}"
+            else:
+                return f"rm {target}"
         else:
             return "echo 'Please specify what to delete'"
 
-    # Handle copy commands
-    elif any(word in query_lower for word in ['copy', 'cp', 'duplicate']):
-        # Extract source and destination
-        source = extract_entity_from_step(query, ['copy', 'cp', 'duplicate'])
-        dest = extract_entity_from_step(query, ['to', 'into', 'as'])
+    # Handle copy commands with enhanced recognition
+    elif any(word in query_lower for word in ['copy', 'cp', 'duplicate', 'replicate', 'backup', 'save as', 'make a copy']):
+        # Extract source and destination with enhanced patterns
+        source = extract_entity_from_step_enhanced(
+            query, ['copy', 'cp', 'duplicate', 'replicate', 'backup', 'save as', 'make a copy'])
+        dest = extract_entity_from_step_enhanced(
+            query, ['to', 'into', 'as', 'destination'])
         if source and dest:
             return f"copy {source} {dest}"
         else:
             return "echo 'Please specify source and destination for copy operation'"
 
-    # Handle move/rename commands
-    elif any(word in query_lower for word in ['move', 'rename', 'mv']):
-        # Extract source and destination
-        source = extract_entity_from_step(query, ['move', 'rename', 'mv'])
-        dest = extract_entity_from_step(query, ['to', 'as'])
+    # Handle move/rename commands with enhanced recognition
+    elif any(word in query_lower for word in ['move', 'rename', 'mv', 'relocate', 'transfer', 'shift', 'change location', 'reposition']):
+        # Extract source and destination with enhanced patterns
+        source = extract_entity_from_step_enhanced(
+            query, ['move', 'rename', 'mv', 'relocate', 'transfer', 'shift', 'change location', 'reposition'])
+        dest = extract_entity_from_step_enhanced(
+            query, ['to', 'as', 'destination'])
         if source and dest:
             return f"move {source} {dest}"
         else:
             return "echo 'Please specify source and destination for move operation'"
 
-    # Handle navigation commands
-    elif any(word in query_lower for word in ['go to', 'navigate', 'change to', 'cd']):
-        # Extract directory
-        directory = extract_entity_from_step(
-            query, ['go to', 'navigate', 'change to', 'cd'])
+    # Handle navigation commands with enhanced recognition
+    elif any(word in query_lower for word in ['go to', 'navigate', 'change to', 'cd', 'switch', 'move to', 'browse to', 'access', 'visit', 'enter']):
+        # Extract directory with enhanced patterns
+        directory = extract_entity_from_step_enhanced(
+            query, ['go to', 'navigate', 'change to', 'cd', 'switch', 'move to', 'browse to', 'access', 'visit', 'enter'])
         if directory:
             return f"cd {directory}"
         else:
             return "cd"
 
-    # Handle list commands
-    elif any(word in query_lower for word in ['list', 'show', 'display', 'files']):
-        if any(word in query_lower for word in ['all', 'hidden', 'detailed']):
+    # Handle list commands with enhanced recognition
+    elif any(word in query_lower for word in ['list', 'show', 'display', 'files', 'view', 'see', 'ls', 'dir', 'directory', 'folder', 'items', 'stuff', 'things', 'contents']):
+        if any(word in query_lower for word in ['all', 'hidden', 'detailed', 'long', 'full', 'info', 'information', 'complete', 'verbose']):
             return "ls -la"
+        elif any(word in query_lower for word in ['detailed', 'long', 'full', 'info', 'information', 'complete', 'verbose']):
+            return "ls -l"
+        elif any(word in query_lower for word in ['hidden', 'dot', 'all', 'including', 'with']):
+            return "ls -a"
         else:
             return "ls"
 
-    # Quick pattern matching for common commands
-    if any(word in query_lower for word in ['cpu', 'processor', 'performance']):
+    # Enhanced system monitoring commands
+    elif any(word in query_lower for word in ['cpu', 'processor', 'performance', 'speed', 'usage', 'load', 'cores']):
         return "cpu"
-    elif any(word in query_lower for word in ['memory', 'ram', 'usage']):
+    elif any(word in query_lower for word in ['memory', 'ram', 'usage', 'mem', 'storage', 'available', 'free']):
         return "mem"
-    elif any(word in query_lower for word in ['process', 'processes', 'running', 'task']):
+    elif any(word in query_lower for word in ['process', 'processes', 'running', 'task', 'ps', 'programs', 'applications']):
         return "ps"
-    elif any(word in query_lower for word in ['disk', 'space', 'storage']):
+    elif any(word in query_lower for word in ['disk', 'space', 'storage', 'capacity', 'drive', 'volume', 'usage']):
         return "disk"
-    elif any(word in query_lower for word in ['where', 'location', 'path', 'pwd']):
+    elif any(word in query_lower for word in ['where', 'location', 'path', 'pwd', 'current directory', 'working directory']):
         return "pwd"
-    elif any(word in query_lower for word in ['help', 'commands', 'what can']):
+    elif any(word in query_lower for word in ['help', 'commands', 'what can', 'guide', 'assistance']):
         return "help"
-    elif any(word in query_lower for word in ['clear', 'clean']):
+    elif any(word in query_lower for word in ['clear', 'clean', 'reset', 'wipe']):
         return "clear"
-    elif any(word in query_lower for word in ['exit', 'quit', 'close']):
+    elif any(word in query_lower for word in ['exit', 'quit', 'close', 'end', 'stop', 'terminate']):
         return "exit"
 
     # Extract entities
@@ -337,10 +396,14 @@ def interpret_nl_query(query: str) -> str:
     # Generate command
     command = generate_command(structure)
 
-    # If no command generated, try fuzzy matching
+    # Enhanced fuzzy matching with synonym support
     if command == "echo 'Command not recognized'":
-        best_match, score = get_best_match(query, COMMAND_PATTERNS)
-        if score > 0.3:  # Threshold for fuzzy matching
+        # Try synonym expansion first
+        expanded_query = expand_synonyms(query)
+        best_match, score = get_best_match(expanded_query, COMMAND_PATTERNS)
+
+        # Lower threshold for better recognition
+        if score > 0.2:  # Lowered threshold for fuzzy matching
             if best_match == 'list_files':
                 return "ls"
             elif best_match == 'navigate':
@@ -356,7 +419,27 @@ def interpret_nl_query(query: str) -> str:
             elif best_match == 'move':
                 return "move"
 
-    return command if command != "echo 'Command not recognized'" else f"echo 'NLP interpretation not available yet. You said: \"{query}\". Try using direct commands like ls, cd, mkdir, touch, copy, move, etc.'"
+        # Try direct keyword matching as fallback
+        for pattern_name, pattern_data in COMMAND_PATTERNS.items():
+            keywords = pattern_data.get('keywords', [])
+            for keyword in keywords:
+                if keyword in query_lower:
+                    if pattern_name == 'list_files':
+                        return "ls"
+                    elif pattern_name == 'navigate':
+                        return "cd"
+                    elif pattern_name == 'create_directory':
+                        return "mkdir new_directory"
+                    elif pattern_name == 'create_file':
+                        return "touch new_file.txt"
+                    elif pattern_name == 'delete':
+                        return "rm"
+                    elif pattern_name == 'copy':
+                        return "copy"
+                    elif pattern_name == 'move':
+                        return "move"
+
+    return command if command != "echo 'Command not recognized'" else f"echo 'I didn't understand: \"{query}\". Try commands like: show files, delete folder, create file, go to directory, copy file, etc.'"
 
 
 def is_nlp_command(command: str) -> bool:
@@ -452,22 +535,86 @@ def get_supported_patterns() -> list:
         list: List of supported patterns
     """
     return [
-        "List files/directories",
-        "Change directory",
-        "Create directory/folder",
-        "Delete files/directories",
-        "Show CPU usage",
-        "Show memory usage",
-        "Show running processes",
-        "Show disk usage",
-        "Show current directory",
-        "Get help"
+        "List files/directories (show files, display contents, what's here)",
+        "Change directory (go to, navigate to, enter folder)",
+        "Create directory/folder (make folder, new directory, add folder)",
+        "Create file (make file, new document, touch file)",
+        "Delete files/directories (remove, trash, erase, get rid of)",
+        "Copy files (duplicate, clone, backup, save as)",
+        "Move/rename files (relocate, transfer, change location)",
+        "Show CPU usage (processor performance, system load)",
+        "Show memory usage (RAM usage, memory stats)",
+        "Show running processes (running programs, active tasks)",
+        "Show disk usage (storage space, disk capacity)",
+        "Show current directory (where am I, current location)",
+        "Get help (commands guide, what can I do)",
+        "Clear terminal (clean screen, reset display)",
+        "Exit terminal (quit, close, end session)"
     ]
+
+
+def analyze_command_context(query: str) -> Dict[str, any]:
+    """
+    Analyze the context of a command to provide better interpretation.
+
+    Args:
+        query (str): The natural language query
+
+    Returns:
+        Dict: Context analysis including urgency, complexity, and intent
+    """
+    query_lower = query.lower()
+
+    context = {
+        'urgency': 'normal',
+        'complexity': 'simple',
+        'intent': 'unknown',
+        'has_target': False,
+        'has_source': False,
+        'has_destination': False,
+        'is_multi_step': False
+    }
+
+    # Analyze urgency indicators
+    urgency_words = ['urgent', 'quickly',
+                     'fast', 'immediately', 'asap', 'hurry']
+    if any(word in query_lower for word in urgency_words):
+        context['urgency'] = 'high'
+
+    # Analyze complexity
+    complexity_indicators = ['and', 'then', 'after',
+                             'before', 'also', 'next', 'followed by']
+    if any(word in query_lower for word in complexity_indicators):
+        context['complexity'] = 'complex'
+        context['is_multi_step'] = True
+
+    # Analyze intent
+    if any(word in query_lower for word in ['create', 'make', 'new', 'add']):
+        context['intent'] = 'create'
+    elif any(word in query_lower for word in ['delete', 'remove', 'trash', 'erase']):
+        context['intent'] = 'delete'
+    elif any(word in query_lower for word in ['copy', 'duplicate', 'clone']):
+        context['intent'] = 'copy'
+    elif any(word in query_lower for word in ['move', 'rename', 'relocate']):
+        context['intent'] = 'move'
+    elif any(word in query_lower for word in ['show', 'list', 'display', 'view']):
+        context['intent'] = 'list'
+    elif any(word in query_lower for word in ['go', 'navigate', 'change', 'cd']):
+        context['intent'] = 'navigate'
+
+    # Analyze presence of targets, sources, destinations
+    entities = extract_entities(query)
+    context['has_target'] = len(entities['files']) > 0 or len(
+        entities['directories']) > 0
+    context['has_source'] = 'from' in query_lower or 'source' in query_lower
+    context['has_destination'] = 'to' in query_lower or 'into' in query_lower or 'destination' in query_lower
+
+    return context
 
 
 def handle_multi_step_command(query: str) -> str:
     """
-    Handle complex multi-step commands like "create a folder test and move file1.txt into it".
+    Enhanced multi-step command handler with better pattern recognition.
 
     Args:
         query (str): Multi-step natural language query
@@ -477,8 +624,9 @@ def handle_multi_step_command(query: str) -> str:
     """
     query_lower = query.lower().strip()
 
-    # Split by common connectors
-    connectors = [' and ', ' then ', ' after that ', ' next ', ' also ']
+    # Enhanced connectors for better splitting
+    connectors = [' and ', ' then ', ' after that ', ' next ', ' also ',
+                  ' followed by ', ' subsequently ', ' after ', ' before ']
     steps = [query]
 
     for connector in connectors:
@@ -493,44 +641,59 @@ def handle_multi_step_command(query: str) -> str:
         if not step:
             continue
 
-        # Analyze each step
-        if any(word in step for word in ['create', 'make', 'new']):
-            if any(word in step for word in ['folder', 'directory', 'dir']):
-                # Extract folder name
-                folder_name = extract_entity_from_step(
-                    step, ['folder', 'directory', 'dir'])
+        # Enhanced step analysis with better entity extraction
+        if any(word in step for word in ['create', 'make', 'new', 'add', 'build', 'generate', 'establish', 'set up', 'initialize']):
+            if any(word in step for word in ['folder', 'directory', 'dir', 'path', 'location']):
+                # Extract folder name with enhanced extraction
+                folder_name = extract_entity_from_step_enhanced(
+                    step, ['folder', 'directory', 'dir', 'path', 'location'])
                 if folder_name:
                     commands.append(f"mkdir {folder_name}")
-            elif any(word in step for word in ['file']):
-                # Extract file name
-                file_name = extract_entity_from_step(step, ['file'])
+            elif any(word in step for word in ['file', 'document', 'text', 'script', 'program']):
+                # Extract file name with enhanced extraction
+                file_name = extract_entity_from_step_enhanced(
+                    step, ['file', 'document', 'text', 'script', 'program'])
                 if file_name:
                     commands.append(f"touch {file_name}")
 
-        elif any(word in step for word in ['move', 'copy', 'rename']):
-            # Extract source and destination
-            source = extract_entity_from_step(step, ['move', 'copy', 'rename'])
-            dest = extract_entity_from_step(step, ['to', 'into', 'as'])
+        elif any(word in step for word in ['move', 'copy', 'rename', 'mv', 'relocate', 'transfer', 'shift', 'change location', 'reposition', 'duplicate', 'clone', 'cp', 'replicate', 'backup', 'save as', 'make a copy']):
+            # Extract source and destination with enhanced extraction
+            source = extract_entity_from_step_enhanced(step, ['move', 'copy', 'rename', 'mv', 'relocate', 'transfer', 'shift',
+                                                       'change location', 'reposition', 'duplicate', 'clone', 'cp', 'replicate', 'backup', 'save as', 'make a copy'])
+            dest = extract_entity_from_step_enhanced(
+                step, ['to', 'into', 'as', 'destination'])
 
             if source and dest:
-                if 'move' in step or 'rename' in step:
+                if any(word in step for word in ['move', 'rename', 'mv', 'relocate', 'transfer', 'shift', 'change location', 'reposition']):
                     commands.append(f"move {source} {dest}")
-                elif 'copy' in step:
+                elif any(word in step for word in ['copy', 'duplicate', 'clone', 'cp', 'replicate', 'backup', 'save as', 'make a copy']):
                     commands.append(f"copy {source} {dest}")
 
-        elif any(word in step for word in ['delete', 'remove']):
-            # Extract target
-            target = extract_entity_from_step(step, ['delete', 'remove'])
+        elif any(word in step for word in ['delete', 'remove', 'rm', 'del', 'trash', 'erase', 'eliminate', 'destroy', 'get rid of', 'clean up', 'purge', 'drop', 'kill', 'wipe', 'clear']):
+            # Extract target with enhanced extraction
+            target = extract_entity_from_step_enhanced(
+                step, ['delete', 'remove', 'rm', 'del', 'trash', 'erase', 'eliminate', 'destroy', 'get rid of', 'clean up', 'purge', 'drop', 'kill', 'wipe', 'clear'])
             if target:
-                commands.append(f"rm {target}")
+                # Check if it's likely a directory
+                if not target.count('.') and any(word in step for word in ['directory', 'folder', 'dir']):
+                    commands.append(f"rmdir {target}")
+                else:
+                    commands.append(f"rm {target}")
 
-        elif any(word in step for word in ['list', 'show', 'display']):
-            commands.append("ls")
+        elif any(word in step for word in ['list', 'show', 'display', 'files', 'view', 'see', 'ls', 'dir', 'directory', 'folder', 'items', 'stuff', 'things', 'contents']):
+            if any(word in step for word in ['all', 'hidden', 'detailed', 'long', 'full', 'info', 'information', 'complete', 'verbose']):
+                commands.append("ls -la")
+            elif any(word in step for word in ['detailed', 'long', 'full', 'info', 'information', 'complete', 'verbose']):
+                commands.append("ls -l")
+            elif any(word in step for word in ['hidden', 'dot', 'all', 'including', 'with']):
+                commands.append("ls -a")
+            else:
+                commands.append("ls")
 
-        elif any(word in step for word in ['go to', 'navigate', 'change to']):
-            # Extract directory
-            directory = extract_entity_from_step(
-                step, ['go to', 'navigate', 'change to'])
+        elif any(word in step for word in ['go to', 'navigate', 'change to', 'cd', 'switch', 'move to', 'browse to', 'access', 'visit', 'enter']):
+            # Extract directory with enhanced extraction
+            directory = extract_entity_from_step_enhanced(
+                step, ['go to', 'navigate', 'change to', 'cd', 'switch', 'move to', 'browse to', 'access', 'visit', 'enter'])
             if directory:
                 commands.append(f"cd {directory}")
 
@@ -606,6 +769,92 @@ def extract_entity_from_step(step: str, keywords: List[str]) -> str:
             entity = entity.strip('.,!?;:"')
             # Don't return the action word itself as entity
             if entity.lower() not in keywords:
+                return entity
+
+    return None
+
+
+def extract_entity_from_step_enhanced(step: str, keywords: List[str]) -> str:
+    """
+    Enhanced entity extraction with better pattern recognition.
+
+    Args:
+        step (str): The step text
+        keywords (List[str]): Keywords to look for
+
+    Returns:
+        str: Extracted entity name
+    """
+    import re
+
+    # Try to find quoted names first (including paths)
+    quoted = re.findall(r'"([^"]*)"', step)
+    if quoted:
+        return quoted[0]
+
+    quoted = re.findall(r"'([^']*)'", step)
+    if quoted:
+        return quoted[0]
+
+    # Look for patterns like "named X", "called X", "as X", "the X"
+    named_patterns = [
+        r'named\s+([a-zA-Z0-9._-]+)',
+        r'called\s+([a-zA-Z0-9._-]+)',
+        r'as\s+([a-zA-Z0-9._-]+)',
+        r'with\s+name\s+([a-zA-Z0-9._-]+)',
+        r'the\s+([a-zA-Z0-9._-]+)',
+        r'a\s+([a-zA-Z0-9._-]+)',
+        r'an\s+([a-zA-Z0-9._-]+)'
+    ]
+
+    for pattern in named_patterns:
+        match = re.search(pattern, step, re.IGNORECASE)
+        if match:
+            return match.group(1)
+
+    # Look for file extensions (.txt, .py, .js, etc.) - prioritize this
+    file_pattern = r'([a-zA-Z0-9._-]+\.[a-zA-Z0-9]+)'
+    file_match = re.search(file_pattern, step)
+    if file_match:
+        return file_match.group(1)
+
+    # Look for paths (with slashes or backslashes)
+    path_pattern = r'([a-zA-Z0-9._-]+(?:[/\\][a-zA-Z0-9._-]+)+)'
+    path_match = re.search(path_pattern, step)
+    if path_match:
+        return path_match.group(1)
+
+    # Look for folder/directory names (no extension)
+    folder_pattern = r'\b([a-zA-Z0-9_-]+)\b'
+    folder_matches = re.findall(folder_pattern, step)
+
+    # Enhanced common words filter
+    common_words = {
+        'a', 'an', 'the', 'new', 'create', 'make', 'delete', 'remove', 'copy', 'move',
+        'rename', 'file', 'folder', 'directory', 'dir', 'to', 'into', 'as', 'named',
+        'called', 'with', 'name', 'trash', 'erase', 'eliminate', 'destroy', 'get',
+        'rid', 'of', 'clean', 'up', 'purge', 'drop', 'kill', 'wipe', 'clear', 'and',
+        'or', 'but', 'in', 'on', 'at', 'by', 'for', 'from', 'with', 'without'
+    }
+
+    for match in folder_matches:
+        if match.lower() not in common_words and len(match) > 1:
+            return match
+
+    # Enhanced fallback: look for words after keywords with better context
+    words = step.split()
+    for i, word in enumerate(words):
+        if word.lower() in keywords and i + 1 < len(words):
+            # Skip common words like "a", "the", "new"
+            next_word = words[i + 1].lower()
+            if next_word in ['a', 'an', 'the', 'new'] and i + 2 < len(words):
+                entity = words[i + 2]
+            else:
+                entity = words[i + 1]
+            # Clean up the entity name
+            entity = entity.strip('.,!?;:"')
+            # Don't return the action word itself as entity
+            if entity.lower() not in keywords and entity.lower() not in common_words:
                 return entity
 
     return None
